@@ -1,0 +1,10 @@
+PUT http://localhost:8080/?queue=qwe
+Content-Type: application/json
+
+####
+
+GET http://localhost:8080/?queue
+Content-Type: application/json
+
+####
+
