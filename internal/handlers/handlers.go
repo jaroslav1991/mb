@@ -7,47 +7,68 @@ import (
 	"net/http"
 )
 
-var arr []string
+var queues map[string]*Queue = map[string]*Queue{}
 
-func HandlerCommon() http.HandlerFunc {
+type Queue struct {
+	Message []string
+}
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		if err := r.ParseForm(); err != nil {
-			log.Println("can't parse put form", err)
-			return
-		}
-		queue := r.Form.Get("queue")
+func (q *Queue) Add(v string) {
+	q.Message = append(q.Message, v)
+}
 
-		if r.Method == http.MethodPut {
-			if queue != "" {
-				arr = append(arr, queue)
-				w.WriteHeader(http.StatusOK)
-				io.WriteString(w, "not empty")
-				fmt.Println(arr)
-			} else {
-				w.WriteHeader(http.StatusBadRequest)
-				io.WriteString(w, "empty")
-			}
-		}
-		if r.Method == http.MethodGet {
-			for i := 0; i < len(arr)+1; i++ {
-				if len(arr) > 0 {
-					w.WriteHeader(http.StatusOK)
-					io.WriteString(w, "not nil")
-					fmt.Println(arr[i])
-					arr = remove(arr, i)
-					fmt.Println(arr)
-					fmt.Println(len(arr))
-					break
-				}
-				w.WriteHeader(http.StatusNotFound)
-				io.WriteString(w, "empty body")
-			}
-		}
+func (q *Queue) Get() string {
+	value := q.Message[0]
 
+	q.Message = q.Message[1:]
+
+	return value
+}
+
+func PutHandler(w http.ResponseWriter, r *http.Request) {
+
+	if err := r.ParseForm(); err != nil {
+		log.Println("can't parse put form", err)
+		return
+	}
+	value := r.Form.Get("v")
+	queue := r.URL.Path[1:]
+
+	if _, exist := queues[queue]; !exist {
+		queues[queue] = &Queue{}
+	}
+
+	if value != "" {
+		queues[queue].Add(value)
+		w.WriteHeader(http.StatusOK)
+		io.WriteString(w, "not empty")
+		fmt.Println(queues)
+		fmt.Println(queues[queue])
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, "empty")
 	}
 }
 
-func remove(slice []string, i int) []string {
-	return append(slice[:i], slice[i+1:]...)
+func GetHandler(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		log.Println("can't parse get form", err)
+		return
+	}
+	queue := r.URL.Path[1:]
+
+	if _, exist := queues[queue]; !exist {
+		queues[queue] = &Queue{}
+	}
+
+	if len(queues[queue].Message) > 0 {
+		fmt.Println(queues[queue].Get())
+		w.WriteHeader(http.StatusOK)
+		io.WriteString(w, "not nil")
+
+		fmt.Println(queues[queue].Message)
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+		io.WriteString(w, "empty body")
+	}
 }

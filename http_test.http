@@ -1,9 +1,9 @@
-PUT http://localhost:8080/?queue=qwe
+PUT http://localhost:8080/language?v=golang
 Content-Type: application/json
 
 ####
 
-GET http://localhost:8080/?queue
+GET http://localhost:8080/language
 Content-Type: application/json
 
 ####
