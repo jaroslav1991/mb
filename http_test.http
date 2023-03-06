@@ -1,9 +1,9 @@
-PUT http://localhost:8080/language?v=golang
+PUT http://localhost:8080/role?v=manager
 Content-Type: application/json
 
 ####
 
-GET http://localhost:8080/language
+GET http://localhost:8080/role?timeout=40
 Content-Type: application/json
 
 ####

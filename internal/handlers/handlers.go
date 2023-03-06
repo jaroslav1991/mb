@@ -1,28 +1,36 @@
 package handlers
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"sync"
+	"time"
 )
 
 var queues map[string]*Queue = map[string]*Queue{}
 
 type Queue struct {
 	Message []string
+	Waiting sync.Mutex
 }
 
 func (q *Queue) Add(v string) {
 	q.Message = append(q.Message, v)
 }
 
-func (q *Queue) Get() string {
-	value := q.Message[0]
+func (q *Queue) Get() (string, bool) {
+	q.Waiting.Lock()
+	defer q.Waiting.Unlock()
+	if len(q.Message) > 0 {
+		value := q.Message[0]
 
-	q.Message = q.Message[1:]
+		q.Message = q.Message[1:]
 
-	return value
+		return value, true
+	}
+
+	return "", false
 }
 
 func PutHandler(w http.ResponseWriter, r *http.Request) {
@@ -41,12 +49,8 @@ func PutHandler(w http.ResponseWriter, r *http.Request) {
 	if value != "" {
 		queues[queue].Add(value)
 		w.WriteHeader(http.StatusOK)
-		io.WriteString(w, "not empty")
-		fmt.Println(queues)
-		fmt.Println(queues[queue])
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, "empty")
 	}
 }
 
@@ -61,14 +65,31 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 		queues[queue] = &Queue{}
 	}
 
-	if len(queues[queue].Message) > 0 {
-		fmt.Println(queues[queue].Get())
-		w.WriteHeader(http.StatusOK)
-		io.WriteString(w, "not nil")
+	timeValue := r.Form.Get("timeout")
+	timeout := time.Nanosecond
 
-		fmt.Println(queues[queue].Message)
-	} else {
-		w.WriteHeader(http.StatusNotFound)
-		io.WriteString(w, "empty body")
+	sleepTime := time.Duration(0)
+
+	if timeValue != "" {
+		timeoutParams, err := time.ParseDuration(timeValue + "s")
+		if err == nil {
+			timeout = timeoutParams
+			sleepTime = time.Second
+		} else {
+			log.Println(err)
+			return
+		}
 	}
+
+	for i := time.Duration(0); i < timeout; i += sleepTime {
+		value, ok := queues[queue].Get()
+		if ok {
+			w.WriteHeader(http.StatusOK)
+			io.WriteString(w, value)
+			return
+		}
+		time.Sleep(sleepTime)
+	}
+
+	w.WriteHeader(http.StatusNotFound)
 }
